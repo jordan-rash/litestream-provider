@@ -1,0 +1,68 @@
+name: goreleaser
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      -
+        name: Fetch all tags
+        run: git fetch --force --tags
+      -
+        name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+      -
+        name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          distribution: goreleaser
+          version: latest
+          args: build --rm-dist
+      - 
+        name: Install wash 
+        uses: wasmcloud/common-actions/install-wash@main
+      - 
+        name: Create Providers
+        run: |
+          wash par create --arch x86_64-macos   --binary dist/litestream-provider_darwin_amd64_v1/amd64-darwin       --capid wasmcloud:sqldb --name "Litestream - SQLite" --vendor jordan-rash --version ${{  github.ref_name }} --revision 1 --destination dist/1_litestream.par.gz
+          wash par create --arch aarch64-macos  --binary dist/litestream-provider_darwin_arm64/arm64-darwin          --capid wasmcloud:sqldb --name "Litestream - SQLite" --vendor jordan-rash --version ${{  github.ref_name }} --revision 1 --destination dist/2_litestream.par.gz
+          wash par create --arch x86_64-linux   --binary dist/litestream-provider_linux_amd64_v1/amd64-linux         --capid wasmcloud:sqldb --name "Litestream - SQLite" --vendor jordan-rash --version ${{  github.ref_name }} --revision 1 --destination dist/3_litestream.par.gz
+          wash par create --arch aarch64-linux  --binary dist/litestream-provider_linux_arm64/arm64-linux            --capid wasmcloud:sqldb --name "Litestream - SQLite" --vendor jordan-rash --version ${{  github.ref_name }} --revision 1 --destination dist/4_litestream.par.gz
+          wash par create --arch armv7-linux    --binary dist/litestream-provider_linux_arm_7/arm7-linux             --capid wasmcloud:sqldb --name "Litestream - SQLite" --vendor jordan-rash --version ${{  github.ref_name }} --revision 1 --destination dist/5_litestream.par.gz
+          wash par create --arch x86_64-windows --binary dist/litestream-provider_windows_amd64_v1/amd64-windows.exe --capid wasmcloud:sqldb --name "Litestream - SQLite" --vendor jordan-rash --version ${{  github.ref_name }} --revision 1 --destination dist/6_litestream.par.gz
+
+      - name: Insert Provides into archive
+        run: |
+          wash par insert --arch aarch64-macos  --binary dist/litestream-provider_darwin_arm64/arm64-darwin          dist/1_litestream.par.gz 
+          wash par insert --arch x86_64-linux   --binary dist/litestream-provider_linux_amd64_v1/amd64-linux         dist/1_litestream.par.gz 
+          wash par insert --arch aarch64-linux  --binary dist/litestream-provider_linux_arm64/arm64-linux            dist/1_litestream.par.gz 
+          wash par insert --arch armv7-linux    --binary dist/litestream-provider_linux_arm_7/arm7-linux             dist/1_litestream.par.gz 
+          wash par insert --arch x86_64-windows --binary dist/litestream-provider_windows_amd64_v1/amd64-windows.exe dist/1_litestream.par.gz 
+
+      - name: Upload provider archive to GH Actions
+        env:
+          WASH_REG_USER: jordan-rash
+          WASH_REG_PASSWORD: ${{ secrets.WASH_PAT }}
+        run: |
+          wash reg push ghcr.io/jordan-rash/litestream-provider:${{  github.ref_name }} dist/1_litestream.par.gz -a org.opencontainers.image.source=https://github.com/jordan-rash/litestream-provider
+
+
+
+  
+
+
